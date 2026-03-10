@@ -31,6 +31,11 @@ public class RoomInventory {
         inventory.put(roomType, count);
     }
 
+    // 🔹 Needed for UC4 search service
+    public Map<String, Integer> getRoomAvailability() {
+        return inventory;
+    }
+
     public void displayInventory(Room single, Room dbl, Room suite) {
 
         System.out.println("Hotel Room Inventory Status\n");

@@ -1,9 +1,14 @@
 /**
  * ==========================================================
- * MAIN CLASS - UseCase3InventorySetup
+ * MAIN CLASS - UseCase4RoomSearch
  * ==========================================================
  *
- * Initializes centralized room inventory.
+ * Use Case 4: Room Search & Availability Check
+ *
+ * Demonstrates how guests can view available rooms
+ * without modifying inventory data.
+ *
+ * @version 4.0
  */
 
 public class BookMyStayApp {
@@ -16,6 +21,13 @@ public class BookMyStayApp {
 
         RoomInventory inventory = new RoomInventory();
 
-        inventory.displayInventory(single, dbl, suite);
+        RoomSearchService searchService = new RoomSearchService();
+
+        searchService.searchAvailableRooms(
+                inventory,
+                single,
+                dbl,
+                suite
+        );
     }
 }
