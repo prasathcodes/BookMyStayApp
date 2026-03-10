@@ -1,33 +1,47 @@
 /**
  * ==========================================================
- * MAIN CLASS - UseCase4RoomSearch
+ * MAIN CLASS - UseCase5BookingRequestQueue
  * ==========================================================
  *
- * Use Case 4: Room Search & Availability Check
+ * Use Case 5: Booking Request (First-Come-First-Served)
  *
- * Demonstrates how guests can view available rooms
- * without modifying inventory data.
+ * Demonstrates how booking requests are accepted
+ * and queued in a fair and predictable order.
  *
- * @version 4.0
+ * @version 5.0
  */
 
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        Room single = new SingleRoom();
-        Room dbl = new DoubleRoom();
-        Room suite = new SuiteRoom();
+        // Display application header
+        System.out.println("Booking Request Queue");
 
-        RoomInventory inventory = new RoomInventory();
+        // Initialize booking queue
+        BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        RoomSearchService searchService = new RoomSearchService();
+        // Create booking requests
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("Subha", "Double");
+        Reservation r3 = new Reservation("Vanmathi", "Suite");
 
-        searchService.searchAvailableRooms(
-                inventory,
-                single,
-                dbl,
-                suite
-        );
+        // Add requests to queue
+        bookingQueue.addRequest(r1);
+        bookingQueue.addRequest(r2);
+        bookingQueue.addRequest(r3);
+
+        // Process requests in FIFO order
+        while (bookingQueue.hasPendingRequests()) {
+
+            Reservation current = bookingQueue.getNextRequest();
+
+            System.out.println(
+                    "Processing booking for Guest: "
+                            + current.getGuestName()
+                            + ", Room Type: "
+                            + current.getRoomType()
+            );
+        }
     }
 }
