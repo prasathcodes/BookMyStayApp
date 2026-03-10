@@ -1,47 +1,37 @@
 /**
  * ==========================================================
- * MAIN CLASS - UseCase5BookingRequestQueue
+ * MAIN CLASS - UseCase6RoomAllocation
  * ==========================================================
  *
- * Use Case 5: Booking Request (First-Come-First-Served)
+ * Use Case 6: Reservation Confirmation & Room Allocation
  *
- * Demonstrates how booking requests are accepted
- * and queued in a fair and predictable order.
+ * Demonstrates how booking requests are confirmed
+ * and rooms are allocated safely.
  *
- * @version 5.0
+ * @version 6.0
  */
 
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Display application header
-        System.out.println("Booking Request Queue");
+        System.out.println("Room Allocation Processing");
 
-        // Initialize booking queue
+        RoomInventory inventory = new RoomInventory();
+
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        // Create booking requests
-        Reservation r1 = new Reservation("Abhi", "Single");
-        Reservation r2 = new Reservation("Subha", "Double");
-        Reservation r3 = new Reservation("Vanmathi", "Suite");
+        RoomAllocationService allocationService = new RoomAllocationService();
 
-        // Add requests to queue
-        bookingQueue.addRequest(r1);
-        bookingQueue.addRequest(r2);
-        bookingQueue.addRequest(r3);
+        bookingQueue.addRequest(new Reservation("Abhi", "Single"));
+        bookingQueue.addRequest(new Reservation("Subha", "Single"));
+        bookingQueue.addRequest(new Reservation("Vanmathi", "Suite"));
 
-        // Process requests in FIFO order
         while (bookingQueue.hasPendingRequests()) {
 
-            Reservation current = bookingQueue.getNextRequest();
+            Reservation reservation = bookingQueue.getNextRequest();
 
-            System.out.println(
-                    "Processing booking for Guest: "
-                            + current.getGuestName()
-                            + ", Room Type: "
-                            + current.getRoomType()
-            );
+            allocationService.allocateRoom(reservation, inventory);
         }
     }
 }
