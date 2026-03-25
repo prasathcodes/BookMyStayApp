@@ -1,103 +1,36 @@
-import java.util.*;
+import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Book My Stay App
  *
- * UC11: Concurrent Booking Simulation (Thread Safety)
+ * UC12: Data Persistence & System Recovery
  */
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        System.out.println("=== UC11 Concurrent Booking Simulation ===\n");
+        System.out.println("System Recovery");
 
-        RoomInventory inventory = new RoomInventory();
-        BookingRequestQueue queue = new BookingRequestQueue();
-        BookingHistory history = new BookingHistory();
-        RoomAllocationService allocationService = new RoomAllocationService(history);
+        PersistenceService persistenceService = new PersistenceService();
+        RoomInventory inventory = persistenceService.loadInventory();
 
-        queue.addRequest(new Reservation("User1", "Single"));
-        queue.addRequest(new Reservation("User2", "Single"));
-        queue.addRequest(new Reservation("User3", "Single"));
-        queue.addRequest(new Reservation("User4", "Double"));
-        queue.addRequest(new Reservation("User5", "Double"));
-        queue.addRequest(new Reservation("User6", "Suite"));
-        queue.addRequest(new Reservation("User7", "Suite"));
-        queue.addRequest(new Reservation("User8", "Suite"));
+        System.out.println();
+        System.out.println("Current Inventory:");
+        inventory.displayInventory();
 
-        BookingWorker t1 = new BookingWorker("Thread-1", queue, allocationService, inventory);
-        BookingWorker t2 = new BookingWorker("Thread-2", queue, allocationService, inventory);
-        BookingWorker t3 = new BookingWorker("Thread-3", queue, allocationService, inventory);
-
-        t1.start();
-        t2.start();
-        t3.start();
-
-        try {
-            t1.join();
-            t2.join();
-            t3.join();
-        } catch (InterruptedException e) {
-            System.out.println("Thread interrupted: " + e.getMessage());
-        }
-
-        System.out.println("\nBooking History");
-        for (Reservation reservation : history.getConfirmedBookings()) {
-            System.out.println("Guest: " + reservation.getGuestName()
-                    + ", Room Type: " + reservation.getRoomType()
-                    + ", Room ID: " + reservation.getRoomId());
-        }
-
-        System.out.println("\nFinal Inventory");
-        for (Map.Entry<String, Integer> entry : inventory.getRoomAvailability().entrySet()) {
-            System.out.println(entry.getKey() + " -> " + entry.getValue());
-        }
+        persistenceService.saveInventory(inventory);
     }
 }
 
-class InvalidBookingException extends Exception {
-    public InvalidBookingException(String message) {
-        super(message);
-    }
-}
+/**
+ * Centralized inventory
+ */
+class RoomInventory implements Serializable {
 
-abstract class Room {
-    protected int numberOfBeds;
-    protected int squareFeet;
-    protected double pricePerNight;
+    private static final long serialVersionUID = 1L;
 
-    public Room(int numberOfBeds, int squareFeet, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.squareFeet = squareFeet;
-        this.pricePerNight = pricePerNight;
-    }
-
-    public void displayRoomDetails() {
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Size: " + squareFeet + " sqft");
-        System.out.println("Price per night: " + pricePerNight);
-    }
-}
-
-class SingleRoom extends Room {
-    public SingleRoom() {
-        super(1, 250, 1500.0);
-    }
-}
-
-class DoubleRoom extends Room {
-    public DoubleRoom() {
-        super(2, 400, 2500.0);
-    }
-}
-
-class SuiteRoom extends Room {
-    public SuiteRoom() {
-        super(3, 750, 5000.0);
-    }
-}
-
-class RoomInventory {
     private Map<String, Integer> inventory;
 
     public RoomInventory() {
@@ -107,19 +40,11 @@ class RoomInventory {
         inventory.put("Suite", 2);
     }
 
-    public synchronized int getAvailability(String roomType) {
+    public int getAvailability(String roomType) {
         return inventory.getOrDefault(roomType, -1);
     }
 
-    public synchronized void updateAvailability(String roomType, int count) throws InvalidBookingException {
-        if (!inventory.containsKey(roomType)) {
-            throw new InvalidBookingException("Invalid room type: " + roomType);
-        }
-
-        if (count < 0) {
-            throw new InvalidBookingException("Inventory cannot become negative for room type: " + roomType);
-        }
-
+    public void updateAvailability(String roomType, int count) {
         inventory.put(roomType, count);
     }
 
@@ -127,174 +52,51 @@ class RoomInventory {
         return inventory;
     }
 
-    public boolean isValidRoomType(String roomType) {
-        return inventory.containsKey(roomType);
+    public void displayInventory() {
+        System.out.println("Single: " + inventory.getOrDefault("Single", 0));
+        System.out.println("Double: " + inventory.getOrDefault("Double", 0));
+        System.out.println("Suite: " + inventory.getOrDefault("Suite", 0));
     }
 }
 
-class Reservation {
-    private String guestName;
-    private String roomType;
-    private String roomId;
+/**
+ * Handles persistence and recovery of system state
+ */
+class PersistenceService {
 
-    public Reservation(String guestName, String roomType) {
-        this.guestName = guestName;
-        this.roomType = roomType;
-    }
+    private static final String FILE_NAME = "inventory.dat";
 
-    public String getGuestName() {
-        return guestName;
-    }
-
-    public String getRoomType() {
-        return roomType;
-    }
-
-    public String getRoomId() {
-        return roomId;
-    }
-
-    public void setRoomId(String roomId) {
-        this.roomId = roomId;
-    }
-}
-
-class BookingRequestQueue {
-    private Queue<Reservation> requestQueue;
-
-    public BookingRequestQueue() {
-        requestQueue = new LinkedList<>();
-    }
-
-    public synchronized void addRequest(Reservation reservation) {
-        requestQueue.offer(reservation);
-    }
-
-    public synchronized Reservation getNextRequest() {
-        return requestQueue.poll();
-    }
-
-    public synchronized boolean hasPendingRequests() {
-        return !requestQueue.isEmpty();
-    }
-}
-
-class BookingHistory {
-    private List<Reservation> confirmedBookings;
-
-    public BookingHistory() {
-        confirmedBookings = new ArrayList<>();
-    }
-
-    public synchronized void addBooking(Reservation reservation) {
-        confirmedBookings.add(reservation);
-    }
-
-    public List<Reservation> getConfirmedBookings() {
-        return confirmedBookings;
-    }
-}
-
-class RoomAllocationService {
-    private Set<String> allocatedRoomIds;
-    private Map<String, Set<String>> assignedRoomsByType;
-    private BookingHistory bookingHistory;
-
-    public RoomAllocationService(BookingHistory bookingHistory) {
-        allocatedRoomIds = new HashSet<>();
-        assignedRoomsByType = new HashMap<>();
-        this.bookingHistory = bookingHistory;
-    }
-
-    public synchronized void allocateRoomThreadSafe(Reservation reservation, RoomInventory inventory)
-            throws InvalidBookingException {
-
-        String roomType = reservation.getRoomType();
-
-        validateReservation(reservation, inventory);
-
-        int available = inventory.getAvailability(roomType);
-
-        if (available <= 0) {
-            throw new InvalidBookingException("No rooms available for " + roomType);
-        }
-
-        String roomId = generateRoomId(roomType);
-
-        if (allocatedRoomIds.contains(roomId)) {
-            throw new InvalidBookingException("Duplicate room allocation: " + roomId);
-        }
-
-        allocatedRoomIds.add(roomId);
-
-        assignedRoomsByType
-                .computeIfAbsent(roomType, k -> new HashSet<>())
-                .add(roomId);
-
-        inventory.updateAvailability(roomType, available - 1);
-
-        reservation.setRoomId(roomId);
-        bookingHistory.addBooking(reservation);
-
-        System.out.println(Thread.currentThread().getName()
-                + " -> Allocated " + roomId
-                + " to " + reservation.getGuestName());
-    }
-
-    private void validateReservation(Reservation reservation, RoomInventory inventory) throws InvalidBookingException {
-        if (reservation.getGuestName() == null || reservation.getGuestName().trim().isEmpty()) {
-            throw new InvalidBookingException("Guest name cannot be empty.");
-        }
-
-        if (reservation.getRoomType() == null || reservation.getRoomType().trim().isEmpty()) {
-            throw new InvalidBookingException("Room type cannot be empty.");
-        }
-
-        if (!inventory.isValidRoomType(reservation.getRoomType())) {
-            throw new InvalidBookingException("Room type does not exist: " + reservation.getRoomType());
+    public void saveInventory(RoomInventory inventory) {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+            out.writeObject(inventory);
+            System.out.println("Inventory saved successfully.");
+        } catch (IOException e) {
+            System.out.println("Failed to save inventory: " + e.getMessage());
         }
     }
 
-    private String generateRoomId(String roomType) {
-        Set<String> assigned = assignedRoomsByType.getOrDefault(roomType, new HashSet<>());
-        int nextId = assigned.size() + 1;
-        return roomType + "-" + nextId;
-    }
-}
+    public RoomInventory loadInventory() {
+        File file = new File(FILE_NAME);
 
-class BookingWorker extends Thread {
+        if (!file.exists()) {
+            System.out.println("No valid inventory data found. Starting fresh.");
+            return new RoomInventory();
+        }
 
-    private BookingRequestQueue queue;
-    private RoomAllocationService allocationService;
-    private RoomInventory inventory;
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+            Object obj = in.readObject();
 
-    public BookingWorker(String name,
-                         BookingRequestQueue queue,
-                         RoomAllocationService allocationService,
-                         RoomInventory inventory) {
-        super(name);
-        this.queue = queue;
-        this.allocationService = allocationService;
-        this.inventory = inventory;
-    }
-
-    @Override
-    public void run() {
-        while (true) {
-            Reservation reservation;
-
-            synchronized (queue) {
-                if (!queue.hasPendingRequests()) {
-                    break;
-                }
-                reservation = queue.getNextRequest();
+            if (obj instanceof RoomInventory) {
+                System.out.println("Inventory restored successfully.");
+                return (RoomInventory) obj;
+            } else {
+                System.out.println("No valid inventory data found. Starting fresh.");
+                return new RoomInventory();
             }
 
-            try {
-                allocationService.allocateRoomThreadSafe(reservation, inventory);
-            } catch (InvalidBookingException e) {
-                System.out.println(getName() + " -> Booking failed: " + e.getMessage());
-            }
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("No valid inventory data found. Starting fresh.");
+            return new RoomInventory();
         }
     }
 }
